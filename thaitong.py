@@ -1,3 +1,17 @@
+st.set_page_config(
+    page_title="Quản Lý Quán Nhậu",
+    initial_sidebar_state="collapsed",
+)
+
+# Đoạn CSS để ẩn nút GitHub và Menu
+hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 import streamlit as st
 import json
 import os
@@ -88,4 +102,5 @@ if total_price > 0:
 
 # --- FOOTER ---
 st.markdown("<br><br><br><hr>", unsafe_allow_html=True)
+
 st.markdown(f"<div style='text-align: center; color: #555;'><p>🚀 <b>{config.TEN_QUAN} - QUẢN LÝ THÔNG MINH</b></p><p>Hỗ trợ Zalo: <b>0814830562</b></p></div>", unsafe_allow_html=True)
