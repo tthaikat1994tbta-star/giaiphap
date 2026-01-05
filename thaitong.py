@@ -3,7 +3,7 @@ import json
 import os
 import requests
 from datetime import datetime
-import config 
+import config
 
 # --- DÒNG NÀY PHẢI ĐƯA LÊN ĐẦU TIÊN ---
 st.set_page_config(page_title=config.TEN_QUAN, layout="wide")
@@ -89,3 +89,4 @@ if total_price > 0:
 
 st.markdown("<br><br><br><hr>", unsafe_allow_html=True)
 st.markdown(f"<div style='text-align: center; color: #555;'><p>🚀 <b>{config.TEN_QUAN} - QUẢN LÝ THÔNG MINH</b></p><p>Hỗ trợ Zalo: <b>0814830562</b></p></div>", unsafe_allow_html=True)
+
