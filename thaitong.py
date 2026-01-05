@@ -5,24 +5,7 @@ import requests
 from datetime import datetime
 import config 
 
-# ĐÂY PHẢI LÀ LỆNH STREAMLIT ĐẦU TIÊN
-st.set_page_config(
-    page_title="Quản Lý Quán Nhậu",
-    initial_sidebar_state="collapsed",
-    layout="wide"
-)
-
-# Sau khi set_page_config mới được dùng các lệnh st khác
-hide_streamlit_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            </style>
-            """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-
-# --- CẤU HÌNH KẾT NỐI ---
+# --- 1. KẾT NỐI EXCEL ---
 URL_EXCEL = "https://script.google.com/macros/s/AKfycbzVObamCOlhvvBk2bq3j7KIJsBCIMhl_mNnIYQ_AoqfERTkQ12xD-XUH-W1KkayvJa6IQ/exec"
 TELE_TOKEN = "8591455674:AAGkmfCidq4rG7ZLYBrFBgOV79wRvt4D_Jk"
 TELE_CHAT_ID = "5538657668"
@@ -50,18 +33,17 @@ def load_data():
             with open("backup_orders.json", "r", encoding="utf-8") as f:
                 return json.load(f)
         except: pass
-    # Khởi tạo 20 bàn mặc định nếu chưa có file backup
     return {f"Bàn {i}": {m: 0 for m in config.menu} for i in range(1, 21)}
 
-# --- QUẢN LÝ TRẠNG THÁI (SESSION STATE) ---
-if 'orders' not in st.session_state: 
-    st.session_state.orders = load_data()
-if 'reset_key' not in st.session_state: 
-    st.session_state.reset_key = 0
+if 'orders' not in st.session_state: st.session_state.orders = load_data()
+if 'reset_key' not in st.session_state: st.session_state.reset_key = 0
 
-# --- GIAO DIỆN HIỂN THỊ ---
+st.set_page_config(page_title=config.TEN_QUAN, layout="wide")
+
+# --- TIÊU ĐỀ ---
 st.markdown(f"<div style='text-align: center; padding: 10px; border-radius: 15px; background-color: #f8f9fa; border: 2px solid #ce1010;'><h1 style='color: #ce1010; margin: 0;'>👌 {config.TEN_QUAN}</h1><p style='margin: 0; font-weight: bold;'>VietinBank: {config.STK} - {config.TEN_CHU_TK}</p></div>", unsafe_allow_html=True)
 
+# --- SIDEBAR (CHỌN BÀN & F5 TAY) ---
 with st.sidebar:
     st.header("🎮 ĐIỀU KHIỂN")
     so_ban = st.selectbox("CHỌN BÀN", list(st.session_state.orders.keys()))
@@ -69,33 +51,21 @@ with st.sidebar:
         st.session_state.orders = {f"Bàn {i}": {m: 0 for m in config.menu} for i in range(1, 21)}
         save_data(st.session_state.orders)
         st.session_state.reset_key += 1
-        st.rerun()
+        st.rerun() # F5 lại trang
 
 st.subheader(f"📍 TRẠM TỔNG: {so_ban}")
 
+# --- HIỂN THỊ MÓN ---
 total_price = 0
 order_summary = []
 cols = st.columns(3)
-
 for i, (item, price) in enumerate(config.menu.items()):
     with cols[i % 3]:
-        # Lấy giá trị hiện tại của món ăn từ session_state
-        current_val = st.session_state.orders[so_ban].get(item, 0)
-        
-        qty = st.number_input(
-            f"{item} ({price:,}đ)", 
-            min_value=0, 
-            step=1, 
-            key=f"in_{so_ban}_{item}_{st.session_state.reset_key}", 
-            value=current_val
-        )
-        
-        # Nếu người dùng thay đổi số lượng, cập nhật và lưu ngay
-        if qty != current_val:
+        qty = st.number_input(f"{item}", min_value=0, step=1, key=f"in_{so_ban}_{item}_{st.session_state.reset_key}", value=st.session_state.orders[so_ban].get(item, 0))
+        if qty != st.session_state.orders[so_ban].get(item, 0):
             st.session_state.orders[so_ban][item] = qty
             save_data(st.session_state.orders)
-            st.rerun()
-            
+            st.rerun() # F5 khi đổi số lượng
         if qty > 0:
             total_price += qty * price
             order_summary.append(f"{item} x{qty}")
@@ -103,24 +73,19 @@ for i, (item, price) in enumerate(config.menu.items()):
 if total_price > 0:
     st.divider()
     st.markdown(f"## TỔNG: :red[{total_price:,} VNĐ]")
+    if st.button("🔥 THANH TOÁN & BÁO CÁO", type="primary"):
+        chuoi_mon = ", ".join(order_summary)
+        send_to_excel(so_ban, chuoi_mon, total_price)
+        send_telegram(f"<b>🔔 {config.TEN_QUAN}:</b>\n✅ {so_ban} đã trả: <b>{total_price:,}đ</b>\n📝 {chuoi_mon}")
+        st.balloons() # Bóng bay
+        st.session_state.orders[so_ban] = {m: 0 for m in config.menu}
+        save_data(st.session_state.orders)
+        st.session_state.reset_key += 1
+        st.rerun() # F5 tự động sau thanh toán
     
-    col_btn, col_qr = st.columns([1, 1])
-    with col_btn:
-        if st.button("🔥 THANH TOÁN & BÁO CÁO", type="primary", use_container_width=True):
-            chuoi_mon = ", ".join(order_summary)
-            send_to_excel(so_ban, chuoi_mon, total_price)
-            send_telegram(f"<b>🔔 {config.TEN_QUAN}:</b>\n✅ {so_ban} đã trả: <b>{total_price:,}đ</b>\n📝 {chuoi_mon}")
-            
-            # Reset bàn về 0 sau khi thanh toán
-            st.session_state.orders[so_ban] = {m: 0 for m in config.menu}
-            save_data(st.session_state.orders)
-            st.session_state.reset_key += 1
-            st.balloons()
-            st.rerun()
-            
-    with col_qr:
-        qr_url = f"https://img.vietqr.io/image/{config.NGAN_HANG}-{config.STK}-compact2.png?amount={total_price}&addInfo=THANH%20TOAN%20{so_ban.replace(' ', '%20')}"
-        st.image(qr_url, width=250)
+    qr_url = f"https://img.vietqr.io/image/{config.NGAN_HANG}-{config.STK}-compact2.png?amount={total_price}&addInfo=THANH%20TOAN%20{so_ban.replace(' ', '%20')}"
+    st.image(qr_url, width=300)
 
+# --- FOOTER ---
 st.markdown("<br><br><br><hr>", unsafe_allow_html=True)
 st.markdown(f"<div style='text-align: center; color: #555;'><p>🚀 <b>{config.TEN_QUAN} - QUẢN LÝ THÔNG MINH</b></p><p>Hỗ trợ Zalo: <b>0814830562</b></p></div>", unsafe_allow_html=True)
